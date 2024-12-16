@@ -159,12 +159,12 @@ function loss(u0, target_angle)
     return loss
 end
 
-function test_model(model, u0)
-    println("Начальный угол ", u0[1])
+function test_model(model, u0, plot=true)
+    
     
     # Получаем силу от модели.
     p = model(u0)
-    println("Предложенная сила воздействия F ", p[1])
+    
     
     # Время воздействия на тележку.
     tspan = (Float32(0.0), Float32(0.02))
@@ -174,18 +174,30 @@ function test_model(model, u0)
     
     # Решаем систему.
     sol = solve(prob)
-    
-    println("Угол θ после воздействия: ", sol[1, end][1])
-    println("Скорость изменения угла ω после воздействия: ", sol[2, end])
-    println("Положение тележки x после воздействия: ", sol[3, end])
-    println("Скорость тележки v после воздействия: ", sol[4, end])
+    if plot
+        println("Начальный угол ", u0[1])
+        println("Предложенная сила воздействия F ", p[1])
+        println("Угол θ после воздействия: ", sol[1, end][1])
+        println("Скорость изменения угла ω после воздействия: ", sol[2, end])
+        println("Положение тележки x после воздействия: ", sol[3, end])
+        println("Скорость тележки v после воздействия: ", sol[4, end])
+    end
 
-    return sol
+    return [sol[1, end], sol[2, end], sol[3, end], sol[4, end]]
 end
 
 #Загружаем модель
 model_path = "model.bson"
 BSON.@load model_path model
 println("Модель загружена из $model_path")
+
+#Задаем начальное состояние
 u0 = Float32[pi/6, 0, 0, 0]
-test_model(model, u0)
+u = u0
+states = []
+# Стабилизируем
+for i in 1:10
+    global u
+    push!(states, u)
+    u = test_model(model, u)
+end
