@@ -168,6 +168,29 @@ function loss(u0, target_angle)
     return loss
 end
 
+function test_model(model, u0)
+    println("Начальный угол ", u0[1])
+    
+    # Получаем силу от модели.
+    p = model(u0)
+    println("Предложенная сила воздействия F ", p[1])
+    
+    # Время воздействия на тележку.
+    tspan = (Float32(0.0), Float32(0.02))
+    
+    # При помощи ODEProblem получаем задачу дифф. ур-ий.
+    prob = ODEProblem(cartpole!, u0, tspan, p)
+    
+    # Решаем систему.
+    sol = solve(prob)
+    
+    println("угол θ после воздействия: ", sol[1, end][1])
+    println("скорость изменения угла ω после воздействия", sol[2, end])
+    println("положение тележки x после воздействия", sol[3, end])
+    println("скорость тележки v после воздействия", sol[4, end])
+
+    return u1
+end
 
 # Оптимизатор
 opt = Flux.Adam()
@@ -202,42 +225,5 @@ for epoch in 1:epochs
     end
 end
 
-# Тестируем модель.
-# u1 - начальное состояние.
-u1 = Float32[pi/6, 0, 0, 0]
-println("Начальный угол ", u1[1])
-
-# Получаем силу от модели.
-p = model(u1)
-println("Предложенная сила воздействия F ", p[1])
-
-# Время воздействия на тележку.
-tspan = (Float32(0.0), Float32(0.02))
-
-# При помощи ODEProblem получаем задачу дифф. ур-ий.
-prob = ODEProblem(cartpole!, u1, tspan, p)
-
-# Решаем систему.
-sol = solve(prob)
-
-println("угол θ после воздействия: ", sol[1, end][1])
-println("скорость изменения угла ω после воздействия", sol[2, end])
-println("положение тележки x после воздействия", sol[3, end])
-println("скорость тележки v после воздействия", sol[4, end])
-
-#u2 - Состояние после первого применения нейросети.
-u2 = Float32[sol[1, end], sol[2, end], sol[3, end], sol[4, end]]
-#Получаем силу от модели
-p = model(u2)
-println("Предложенная сила воздействия F ", p[1])
-
-# Время воздействия на тележку.
-tspan = (Float32(0.0), Float32(0.02))
-# При помощи ODEProblem получаем задачу дифф. ур-ий.
-prob = ODEProblem(cartpole!, u2, tspan, p)
-sol = solve(prob)  # Решаем систему.
-
-println("угол θ после воздействия: ", sol[1, end][1])
-println("скорость изменения угла ω после воздействия", sol[2, end])
-println("положение тележки x после воздействия", sol[3, end])
-println("скорость тележки v после воздействия", sol[4, end])
+u0 = Float32[pi/6, 0, 0, 0]
+test_model(model, u0)
