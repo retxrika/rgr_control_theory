@@ -159,12 +159,7 @@ function loss(u0, target_angle)
     return loss
 end
 
-function test_model(u0)
-    #Загружаем модель
-    model_path = "model.bson"
-    BSON.@load model_path model
-    println("Модель загружена из $model_path")
-
+function test_model(model, u0)
     println("Начальный угол ", u0[1])
     
     # Получаем силу от модели.
@@ -188,6 +183,9 @@ function test_model(u0)
     return sol
 end
 
-
+#Загружаем модель
+model_path = "model.bson"
+BSON.@load model_path model
+println("Модель загружена из $model_path")
 u0 = Float32[pi/6, 0, 0, 0]
-test_model(u0)
+test_model(model, u0)
