@@ -165,7 +165,7 @@ function loss(u0, target_angle)
         # времени tspan.
         sol = solve(prob)
         # Расчёт ошибки для текущего начального состояния.
-        loss += abs(sol[1, end] - target_angle)/length(u0) 
+        loss += Float32((sol[1, end]^2 + p[1]^2/100000)/length(u0)) 
     end   
     return loss
 end
@@ -175,7 +175,7 @@ end
 opt = Flux.Adam()
 
 batch_size = 100
-epochs = 3000000
+epochs = 60000
 
 # Цель - вернуть в вертикальное положение
 target_angle = 0.0

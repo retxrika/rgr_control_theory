@@ -183,7 +183,7 @@ function test_model(model, u0, plot=true)
         println("Скорость тележки v после воздействия: ", sol[4, end])
     end
 
-    return [sol[1, end], sol[2, end], sol[3, end], sol[4, end]]
+    return [sol[1, end], sol[2, end], sol[3, end], sol[4, end]], p
 end
 
 #Загружаем модель
@@ -196,8 +196,12 @@ u0 = Float32[pi/6, 0, 0, 0]
 u = u0
 states = []
 # Стабилизируем
-for i in 1:10
+for i in 1:5000
     global u
     push!(states, u)
-    u = test_model(model, u)
+    u, p = test_model(model, u)
+    if !(-pi/2 < u[1]  < pi/2)
+        println("θ = ", u[1], " p = ", p, " Сломалось на итерации ", i)
+        break
+    end
 end
