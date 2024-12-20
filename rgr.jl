@@ -1,26 +1,35 @@
 using Pkg
 # Для создания и обучения нейронных сетей.
-Pkg.add(PackageSpec(name="Flux", version="0.14.25"))
+#Pkg.add(PackageSpec(name="Flux", version="0.14.25"))
 # Для моделирования и решения дифференциальных уравнений
-Pkg.add(PackageSpec(name="DifferentialEquations", version="7.15.0"))
+#Pkg.add(PackageSpec(name="DifferentialEquations", version="7.15.0"))
 # Для автоматического дифференцирования в задачах, связанных с моделированием.
-Pkg.add(PackageSpec(name="SciMLSensitivity", version="7.72.0"))
+#Pkg.add(PackageSpec(name="SciMLSensitivity", version="7.72.0"))
 # Для методов оптимизации
-Pkg.add(PackageSpec(name="Optimisers", version="0.3.4"))
-Pkg.add("BSON")
-Pkg.status()
+#Pkg.add(PackageSpec(name="Optimisers", version="0.3.4"))
+# Для сохранения и загрузки модели
+#Pkg.add("BSON")
+# Для вывода графиков
+#Pkg.add("Plots")
+#Pkg.status()
 using Optimisers
 using SciMLSensitivity
 using DifferentialEquations
 using Flux
 using Random
 using BSON
+using Plots
 
 # Параметры маятника.
 m = Float32(0.2)   # Масса шарика (кг).
 M = Float32(0.5)   # Масса тележки (кг).
 L = Float32(0.3)   # Длина маятника (м).
 g = Float32(9.81)  # Ускорение свободного падения (м/с^2).
+
+# Критерий качества
+function quality(teta_arr, p_arr)
+    return sum(teta_arr .^ 2 + p_arr .^ 2) * 0.02
+end
 
 #= 
 Генерация батча (набора) случайных элементов для обучения модели.
@@ -157,11 +166,106 @@ function test_model(model, u0, alg, use_model, print_u=true)
         println("Скорость тележки v после воздействия: ", sol[4, end])
     end
 
-    return [sol[1, end], sol[2, end], sol[3, end], sol[4, end]], p
+    return [sol[1, end], sol[2, end], sol[3, end], sol[4, end]], p[1]
 end
 
+function show_graphs(
+    u0,
+    show_x=true, 
+    show_theta=true,
+    show_crit=true
+)
+    # Генерация массива для оси X
+    times = 0.0:0.02:100.0
+    states_Tan_Yam7_theta = []
+    states_Tan_Yam7_x = []
+    u0_last = u0
+    flag = false
+    for i in 1:5001
+        last_u4 = u0[4]
+        if show_theta
+            push!(states_Tan_Yam7_theta, u0[1])
+        end
+        if show_x        
+            push!(states_Tan_Yam7_x, u0[3])
+        end
 
+        if !flag
+            u0, p = test_model(Nothing, u0, TanYam7(), false, false)
+        end
 
+        if u0[1] > pi/2
+            flag = true
+            u0[1] = pi/2
+            u0[4] = last_u4
+        end
+        if u0[1] < -pi/2
+            flag = true
+            u0[1] = -pi/2
+            u0[4] = last_u4
+        end
+        
+        if flag
+            u0[3] += u0[4] * 0.02
+        end
+    end
+
+    u0 = u0_last
+    states_Vern7_theta = []
+    states_Vern7_x = []
+    flag = false
+
+    for i in 1:5001
+        last_u4 = u0[4]
+        if show_theta
+            push!(states_Vern7_theta, u0[1])
+        end
+        if show_x
+            push!(states_Vern7_x, u0[3])
+        end
+
+        if !flag
+            u0, p = test_model(Nothing, u0, Vern7(), false, false)
+        end
+
+        if u0[1] > pi/2
+            flag = true
+            u0[1] = pi/2
+            u0[4] = last_u4
+        end
+        if u0[1] < -pi/2
+            flag = true
+            u0[1] = -pi/2
+            u0[4] = last_u4
+        end
+
+        if flag
+            u0[3] += u0[4] * 0.02
+        end
+    end
+
+    # Построение графиков theta.
+    if show_theta
+        plot(times, states_Tan_Yam7_theta, label="Алгоритм TanYam7", xlabel="t", ylabel="Состояние theta", title="Графики зависимости состояний theta от времени")
+        plot!(times, states_Vern7_theta, label="Алгоритм Vern7", color=:red)
+        # Сохранение графиков.
+        savefig("graphs_theta.png")
+    end
+    
+    # Построение графиков для x.
+    if show_x
+        plot(times, states_Tan_Yam7_x, label="Алгоритм TanYam7", xlabel="t", ylabel="Состояние x", title="Графики зависимости состояний x от времени")
+        plot!(times, states_Vern7_x, label="Алгоритм Vern7", color=:red)
+        # Сохранение графиков.
+        savefig("graphs_x.png")
+    end
+
+    # Критерий качества.
+    if show_crit
+        println("Критерий качества для Tan_Yam7: " * string(sum(states_Tan_Yam7_theta .^ 2) * 0.02))
+        println("Критерий качества для Vern7: " * string(sum(states_Vern7_theta .^ 2) * 0.02))
+    end
+end
 
 #Загружаем модель
 model_path = "model.bson"
@@ -170,14 +274,31 @@ println("Модель загружена из $model_path")
 
 #Задаем начальное состояние
 u0 = Float32[pi/6, 0, 0, 0]
+
+# графики до изменения
+show_graphs(u0)
+
 u = u0
 states_Tan_Yam7 = []
+θ_Tan_Yam7 = []
+X_Tan_Yam7 = []
+P_Tan_Yam7 = []
+
+# начальное значение
+p = Float32(0)
+num_iter = 5000
+t_arr = collect(range(0, step=0.02, length=num_iter))
+
 # Стабилизируем
 count = 0
-for i in 1:5000
+for i in 1:num_iter
     global u
     global count
+    global p
     push!(states_Tan_Yam7, u)
+    push!(θ_Tan_Yam7, u[1])
+    push!(X_Tan_Yam7, u[2])
+    push!(P_Tan_Yam7, p)
 
     # Применяем модель
     use = true
@@ -188,47 +309,68 @@ for i in 1:5000
         count += 1
     end
 
-    u, p = test_model(model, u, TanYam7(), use)
-
+    u, p = test_model(model, u, TanYam7(), use, false)
 
     if !(-pi/2 < u[1]  < pi/2)
         println("θ = ", u[1], " p = ", p, " Сломалось на итерации ", i)
         break
     end
 end
-println(count)
-#=
-#Загружаем модель
-model_path = "model.bson"
-BSON.@load model_path model
-println("Модель загружена из $model_path")
 
 #Задаем начальное состояние
 u0 = Float32[pi/6, 0, 0, 0]
 u = u0
-states_Vern7 = []
-# Стабилизируем
-for i in 1:5000
+θ_Vern7 = []
+X_Vern7 = []
+P_Vern7 = []
+
+# начальное значение
+p = Float32(0)
+num_iter = 5000
+
+# график стабилизации
+count = 0
+for i in 1:num_iter
     global u
-    push!(states_Vern7, u)
-    u, p = test_model(model, u, Vern7(lazy=false))
+    global count
+    global p
+    push!(θ_Vern7, u[1])
+    push!(X_Vern7, u[2])
+    push!(P_Vern7, p)
+
+    # Применяем модель
+    use = true
+
+    # Если угол около нуля можно не применять модель
+    if (-0.025 < u[1] < 0.025) &&  (-0.05 < u[2] < 0.05)
+        use = false
+        count += 1
+    end
+
+    u, p = test_model(model, u, Vern7(), use, false)
+
+
     if !(-pi/2 < u[1]  < pi/2)
         println("θ = ", u[1], " p = ", p, " Сломалось на итерации ", i)
         break
     end
 end
-=#
 
-#= TO DO:
-1 Построить графики u[1], u[2], u[3], u[4] от времени временной интервал
-0.00, 0.02, 0.04, ..... 100.00 (5000 итераций) для каждой модели (Должны быть 4 картинки по 2 графика для каждого алгоритма)
+println("Критерий качества для Tan_Yam7: ", quality(θ_Tan_Yam7, P_Tan_Yam7))
+println("Критерий качества для Vern7: ", quality(θ_Vern7, P_Vern7))
 
-1.1 Обернуть в цикл/функцию всё что идет от Загружаем модель до TO DO, потому что дальше надо будет повторить
+plot(t_arr, θ_Tan_Yam7, label="Изменение угла θ для Tan_Yam7", title="Стабилизация", xlabel="t", ylabel="θ", color=:red)
+plot!(t_arr, θ_Vern7, label="Изменение угла θ для Vern7", color=:blue)
 
-2 Построить такой же цикл на 5000 итераций, но чтобы модель не применялась
-(в функции test_model use_model всегда = false) мб добавить флаг, чтобы не писать вторую функцию
+# сохранение графика
+savefig("plot.png")
 
-3 Для цикла где модель не применяется построить θ от t и x от t
-=#
+plot(t_arr, X_Tan_Yam7, label="Изменение траектории для Tan_Yam7", title="Траектория", xlabel="t", ylabel="X", color=:red)
+plot!(t_arr, X_Vern7, label="Изменение траектории для Vern7", color=:blue)
 
+savefig("traectory.png")
 
+plot(t_arr, P_Tan_Yam7, label="Изменение силы для Tan_Yam7", title="Изменение силы", xlabel="t", ylabel="X", color=:red)
+plot!(t_arr, P_Vern7, label="Изменение силы для Vern7", color=:blue)
+
+savefig("p.png")
